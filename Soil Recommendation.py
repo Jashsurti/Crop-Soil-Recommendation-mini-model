@@ -1,22 +1,20 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
 import streamlit as st
 
 # -------------------------------
-# Step 1: Create Dataset
+# Step 1: Expanded Dataset
 # -------------------------------
 data = {
-    'Nitrogen': [90, 30, 40, 100, 20, 35],
-    'Phosphorus': [40, 60, 50, 40, 70, 45],
-    'Potassium': [40, 40, 60, 50, 40, 55],
-    'pH': [6.5, 5.5, 6.0, 6.8, 5.2, 6.1],
-    'Rainfall': [200, 100, 180, 220, 90, 170],
-    'Temperature': [28, 25, 27, 29, 24, 26],
-    'SoilType': ['Clay', 'Loamy', 'Sandy', 'Clay', 'Loamy', 'Sandy'],
-    'Crop': ['Rice', 'Banana', 'Pepper', 'Rice', 'Banana', 'Pepper']
+    'Nitrogen': [90, 30, 40, 100, 20, 35, 85, 25, 50, 95],
+    'Phosphorus': [40, 60, 50, 40, 70, 45, 45, 65, 55, 35],
+    'Potassium': [40, 40, 60, 50, 40, 55, 45, 50, 50, 40],
+    'pH': [6.5, 5.5, 6.0, 6.8, 5.2, 6.1, 6.4, 5.6, 6.0, 6.7],
+    'Rainfall': [200, 100, 180, 220, 90, 170, 210, 120, 160, 230],
+    'Temperature': [28, 25, 27, 29, 24, 26, 27, 26, 28, 30],
+    'SoilType': ['Clay', 'Loamy', 'Sandy', 'Clay', 'Loamy', 'Sandy', 'Clay', 'Loamy', 'Sandy', 'Clay'],
+    'Crop': ['Rice', 'Banana', 'Pepper', 'Rice', 'Banana', 'Pepper', 'Rice', 'Banana', 'Pepper', 'Rice']
 }
 
 df = pd.DataFrame(data)
@@ -34,21 +32,15 @@ X = df.drop(columns=['Crop', 'CropLabel', 'SoilType'])
 y = df['CropLabel']
 
 # -------------------------------
-# Step 3: Train/Test Split
+# Step 3: Train RandomForest
 # -------------------------------
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-
-# -------------------------------
-# Step 4: Train Model
-# -------------------------------
-model = RandomForestClassifier(random_state=42)
-model.fit(X_train, y_train)
+model = RandomForestClassifier(random_state=42, n_estimators=100)
+model.fit(X, y)
 
 # -------------------------------
 # Streamlit UI
 # -------------------------------
 st.set_page_config(page_title="Crop Recommendation", page_icon="🌱", layout="centered")
-
 st.title("🌱 Smart Crop Recommendation System")
 st.write("Enter soil and weather details to get personalized crop suggestions.")
 
@@ -65,23 +57,37 @@ with col2:
     temperature = st.number_input("Temperature (°C)", min_value=0, max_value=50, value=25)
     soil_type = st.selectbox("Soil Type", soil_enc.classes_)
 
+# -------------------------------
+# Crop Details Dictionary
+# -------------------------------
+crop_details = {
+    "Rice": "🌾 Rice grows best in clay soil with high rainfall. Prefers pH 5.5–6.8. Needs standing water and warm temperatures.",
+    "Banana": "🍌 Banana thrives in loamy soil with moderate rainfall and warm temperature.",
+    "Pepper": "🌶️ Pepper prefers sandy or loamy soil with good drainage, partial shade, and warm climate."
+}
+
+# -------------------------------
+# Prediction Button
+# -------------------------------
 if st.button("🔍 Recommend Crop"):
     sample = [[nitrogen, phosphorus, potassium, ph, rainfall, temperature, soil_enc.transform([soil_type])[0]]]
-    pred = model.predict(sample)
-    crop = crop_enc.inverse_transform(pred)
+    probs = model.predict_proba(sample)[0]
 
-    st.success(f"✅ Recommended Crop: **{crop[0]}**")
+    # Show all crops sorted by probability
+    top_idx = probs.argsort()[::-1]
 
-    # Advisory notes
-    if crop[0] == "Rice":
-        st.info("🌾 Rice grows best in clay soil with high rainfall. Ensure proper water management.")
-    elif crop[0] == "Banana":
-        st.info("🍌 Banana thrives in loamy soil with moderate rainfall. Use organic compost for better yield.")
-    elif crop[0] == "Pepper":
-        st.info("🌶️ Pepper prefers sandy soil with warm climate. Provide support poles and shade trees.")
+    st.success("✅ Crop Recommendations (based on probability):")
+    for i in top_idx:
+        crop_name = crop_enc.inverse_transform([i])[0]
+        st.write(f"**{crop_name}** - Confidence: {probs[i]*100:.2f}%")
+        st.write(crop_details.get(crop_name, "No details available."))
+        st.write("---")
 
-# Show model accuracy for judges
-st.markdown("---")
-y_pred = model.predict(X_test)
-acc = accuracy_score(y_test, y_pred)
-st.metric("📊 Model Accuracy", f"{acc*100:.2f}%")
+# -------------------------------
+# Show model accuracy on training data
+# -------------------------------
+st.markdown("### Model Accuracy")
+st.write("⚠️ Note: Small dataset → Accuracy not reliable for production.")
+y_pred = model.predict(X)
+acc = (y_pred == y).mean()
+st.metric("📊 Training Data Accuracy", f"{acc*100:.2f}%")
