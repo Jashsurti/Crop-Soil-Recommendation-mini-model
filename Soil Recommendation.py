@@ -1,87 +1,119 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
 import streamlit as st
+import matplotlib.pyplot as plt
 
 # -------------------------------
-# Step 1: Create Dataset
+# Step 1: Load Dataset
 # -------------------------------
-data = {
-    'Nitrogen': [90, 30, 40, 100, 20, 35],
-    'Phosphorus': [40, 60, 50, 40, 70, 45],
-    'Potassium': [40, 40, 60, 50, 40, 55],
-    'pH': [6.5, 5.5, 6.0, 6.8, 5.2, 6.1],
-    'Rainfall': [200, 100, 180, 220, 90, 170],
-    'Temperature': [28, 25, 27, 29, 24, 26],
-    'SoilType': ['Clay', 'Loamy', 'Sandy', 'Clay', 'Loamy', 'Sandy'],
-    'Crop': ['Rice', 'Banana', 'Pepper', 'Rice', 'Banana', 'Pepper']
-}
-
-df = pd.DataFrame(data)
-
-# -------------------------------
-# Step 2: Encode Categorical
-# -------------------------------
-soil_enc = LabelEncoder()
+df = pd.read_csv("Crop_Recommendation.csv")
+# Encode Crop Labels
 crop_enc = LabelEncoder()
-
-df['SoilTypeEnc'] = soil_enc.fit_transform(df['SoilType'])
 df['CropLabel'] = crop_enc.fit_transform(df['Crop'])
 
-X = df.drop(columns=['Crop', 'CropLabel', 'SoilType'])
+# Features and Target
+X = df.drop(columns=['Crop', 'CropLabel'])
 y = df['CropLabel']
 
 # -------------------------------
-# Step 3: Train/Test Split
+# Step 2: Train Model
 # -------------------------------
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+model = RandomForestClassifier(random_state=42, n_estimators=100)
+model.fit(X, y)
 
 # -------------------------------
-# Step 4: Train Model
+# Step 3: Streamlit UI Config
 # -------------------------------
-model = RandomForestClassifier(random_state=42)
-model.fit(X_train, y_train)
+st.set_page_config(page_title="Smart Crop Recommender", page_icon="🌱", layout="wide")
+
+st.markdown("""
+    <style>
+    body { background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%); }
+    h1 { text-align: center; color: #1b5e20; font-size: 42px; }
+    .card {
+        background: rgba(255, 255, 255, 0.9);
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0px 8px 20px rgba(0,0,0,0.1);
+        margin: 10px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("<h1>🌾 Smart Crop Recommendation System</h1>", unsafe_allow_html=True)
 
 # -------------------------------
-# Streamlit UI
+# Step 4: Input Fields
 # -------------------------------
-st.set_page_config(page_title="Crop Recommendation", page_icon="🌱", layout="centered")
-
-st.title("🌱 Smart Crop Recommendation System")
-st.write("Enter soil and weather details to get personalized crop suggestions.")
-
 col1, col2 = st.columns(2)
 
 with col1:
-    nitrogen = st.number_input("Nitrogen (N)", min_value=0, max_value=200, value=50)
-    phosphorus = st.number_input("Phosphorus (P)", min_value=0, max_value=200, value=50)
-    potassium = st.number_input("Potassium (K)", min_value=0, max_value=200, value=50)
-    ph = st.slider("Soil pH", 0.0, 14.0, 6.0)
+    nitrogen = st.number_input("🌿 Nitrogen (N)", min_value=0, max_value=200, value=50)
+    phosphorus = st.number_input("🌱 Phosphorus (P)", min_value=0, max_value=200, value=50)
+    potassium = st.number_input("🌻 Potassium (K)", min_value=0, max_value=200, value=50)
+    ph = st.slider("🧪 Soil pH", 0.0, 14.0, 6.5)
 
 with col2:
-    rainfall = st.number_input("Rainfall (mm)", min_value=0, max_value=500, value=120)
-    temperature = st.number_input("Temperature (°C)", min_value=0, max_value=50, value=25)
-    soil_type = st.selectbox("Soil Type", soil_enc.classes_)
+    temperature = st.number_input("🌡️ Temperature (°C)", min_value=0, max_value=50, value=25)
+    humidity = st.slider("💧 Humidity (%)", 0.0, 100.0, 70.0)
+    rainfall = st.number_input("🌧️ Rainfall (mm)", min_value=0, max_value=500, value=150)
 
+# -------------------------------
+# Step 5: Prediction
+# -------------------------------
 if st.button("🔍 Recommend Crop"):
-    sample = [[nitrogen, phosphorus, potassium, ph, rainfall, temperature, soil_enc.transform([soil_type])[0]]]
-    pred = model.predict(sample)
-    crop = crop_enc.inverse_transform(pred)
+    sample = [[nitrogen, phosphorus, potassium, temperature, humidity, ph, rainfall]]
+    probs = model.predict_proba(sample)[0]
 
-    st.success(f"✅ Recommended Crop: **{crop[0]}**")
+    # Get top 3 crops
+    top_indices = probs.argsort()[-3:][::-1]
+    top_crops = [(crop_enc.inverse_transform([i])[0], probs[i]*100) for i in top_indices]
 
-    # Advisory notes
-    if crop[0] == "Rice":
-        st.info("🌾 Rice grows best in clay soil with high rainfall. Ensure proper water management.")
-    elif crop[0] == "Banana":
-        st.info("🍌 Banana thrives in loamy soil with moderate rainfall. Use organic compost for better yield.")
-    elif crop[0] == "Pepper":
-        st.info("🌶️ Pepper prefers sandy soil with warm climate. Provide support poles and shade trees.")
+    # -------------------------------
+    # Custom Popup HTML (Clean, No Bar Chart)
+    # -------------------------------
+    recommendations_html = "".join(
+        [f"<p style='font-size:16px;'>✅ <b>{crop}</b> — {conf:.2f}%</p>" for crop, conf in top_crops]
+    )
 
-# Show model accuracy for judges
-st.markdown("---")
-y_pred = model.predict(X_test)
-acc = accuracy_score(y_test, y_pred)
-st.metric("📊 Model Accuracy", f"{acc*100:.2f}%")
+    popup_html = f"""
+    <div id="popup" style="
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;">
+        <div style="
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 380px;
+            text-align: center;
+            box-shadow: 0px 4px 12px rgba(0,0,0,0.3);">
+            
+            <h2 style="color:#2e7d32;">🌱 Recommended Crops</h2>
+            {recommendations_html}
+            
+            <button onclick="document.getElementById('popup').style.display='none'"
+                style="padding: 8px 16px; border: none; background: #2e7d32; 
+                       color: white; border-radius: 8px; cursor: pointer; margin-top:10px;">
+                Close
+            </button>
+        </div>
+    </div>
+    """
+    st.components.v1.html(popup_html, height=300)
+
+# -------------------------------
+# Step 6: Show Accuracy
+# -------------------------------
+st.markdown("<div class='card'>", unsafe_allow_html=True)
+st.markdown("### 📊 Model Accuracy")
+y_pred = model.predict(X)
+acc = (y_pred == y).mean()
+st.metric("Training Accuracy", f"{acc*100:.2f}%")
+st.markdown("</div>", unsafe_allow_html=True)
