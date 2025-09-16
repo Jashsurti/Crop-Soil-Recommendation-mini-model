@@ -7,14 +7,7 @@ import matplotlib.pyplot as plt
 # -------------------------------
 # Step 1: Load Dataset
 # -------------------------------
-uploaded_file = st.file_uploader("Upload your Crop_Recommendation.csv", type="csv")
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    # rest of your code goes here
-else:
-    st.warning("Please upload the CSV file to continue.")
-
-
+df = pd.read_csv("Crop_Recommendation.csv")
 # Encode Crop Labels
 crop_enc = LabelEncoder()
 df['CropLabel'] = crop_enc.fit_transform(df['Crop'])
@@ -69,38 +62,23 @@ with col2:
 # -------------------------------
 # Step 5: Prediction
 # -------------------------------
-if st.button("🔍 Recommend Crops", use_container_width=True):
+if st.button("🔍 Recommend Crop"):
     sample = [[nitrogen, phosphorus, potassium, temperature, humidity, ph, rainfall]]
     probs = model.predict_proba(sample)[0]
 
-    # Sort top 5 recommendations
-    top_idx = probs.argsort()[::-1][:5]
-    top_crops = [(crop_enc.inverse_transform([i])[0], probs[i]*100) for i in top_idx]
-
-    best_crop, best_conf = top_crops[0]
+    # Get top 3 crops
+    top_indices = probs.argsort()[-3:][::-1]
+    top_crops = [(crop_enc.inverse_transform([i])[0], probs[i]*100) for i in top_indices]
 
     # -------------------------------
-    # Bar Chart for Probabilities
+    # Custom Popup HTML (Clean, No Bar Chart)
     # -------------------------------
-    fig, ax = plt.subplots(figsize=(4, 2.5))   # smaller figure
-    crops = [c for c, _ in top_crops]
-    confs = [p for _, p in top_crops]
+    recommendations_html = "".join(
+        [f"<p style='font-size:16px;'>✅ <b>{crop}</b> — {conf:.2f}%</p>" for crop, conf in top_crops]
+    )
 
-    ax.barh(crops[::-1], confs[::-1], color="#43a047", alpha=0.8)
-    ax.set_xlabel("Confidence (%)", fontsize=8)
-    ax.set_title("Top Crop Recommendations", fontsize=10, weight="bold")
-    ax.tick_params(axis="both", labelsize=8)
-
-    # -------------------------------
-    # Stylish Popup with Chart
-    # -------------------------------
     popup_html = f"""
-    <style>
-    @keyframes fadeIn {{
-        from {{opacity: 0; transform: scale(0.8);}}
-        to {{opacity: 1; transform: scale(1);}}
-    }}
-    #popup {{
+    <div id="popup" style="
         position: fixed;
         top: 0; left: 0;
         width: 100%; height: 100%;
@@ -108,42 +86,27 @@ if st.button("🔍 Recommend Crops", use_container_width=True):
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 9999;
-        animation: fadeIn 0.4s ease;
-    }}
-    .popup-content {{
-        background: #ffffff;
-        padding: 30px;
-        border-radius: 20px;
-        width: 550px;
-        text-align: center;
-        box-shadow: 0px 10px 25px rgba(0,0,0,0.25);
-        font-family: 'Segoe UI', sans-serif;
-        animation: fadeIn 0.4s ease;
-    }}
-    .best-crop {{
-        background: linear-gradient(90deg, #81c784, #388e3c);
-        padding: 12px;
-        border-radius: 12px;
-        margin-bottom: 15px;
-        font-size: 20px;
-        font-weight: bold;
-        color: white;
-    }}
-    </style>
-    <div id="popup">
-        <div class="popup-content">
-            <h2>🌱 Recommended Crops</h2>
-            <div class="best-crop">✅ Best Choice: {best_crop.title()} ({best_conf:.2f}%)</div>
+        z-index: 9999;">
+        <div style="
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 380px;
+            text-align: center;
+            box-shadow: 0px 4px 12px rgba(0,0,0,0.3);">
+            
+            <h2 style="color:#2e7d32;">🌱 Recommended Crops</h2>
+            {recommendations_html}
+            
+            <button onclick="document.getElementById('popup').style.display='none'"
+                style="padding: 8px 16px; border: none; background: #2e7d32; 
+                       color: white; border-radius: 8px; cursor: pointer; margin-top:10px;">
+                Close
+            </button>
         </div>
     </div>
     """
-
-    # Display popup
     st.components.v1.html(popup_html, height=300)
-
-    # Show bar chart below popup
-    st.pyplot(fig)
 
 # -------------------------------
 # Step 6: Show Accuracy
