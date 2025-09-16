@@ -7,7 +7,13 @@ import matplotlib.pyplot as plt
 # -------------------------------
 # Step 1: Load Dataset
 # -------------------------------
-df = pd.read_csv("Crop_Recommendation.csv")
+uploaded_file = st.file_uploader("Upload your Crop_Recommendation.csv", type="csv")
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    # rest of your code goes here
+else:
+    st.warning("Please upload the CSV file to continue.")
+
 
 # Encode Crop Labels
 crop_enc = LabelEncoder()
