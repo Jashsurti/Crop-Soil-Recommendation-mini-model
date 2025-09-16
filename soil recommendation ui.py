@@ -7,7 +7,9 @@ import matplotlib.pyplot as plt
 # -------------------------------
 # Step 1: Load Dataset
 # -------------------------------
-df = pd.read_csv("Crop_Recommendation.csv")
+url = "https://github.com/Jashsurti/Crop-Soil-Recommendation-mini-model/blob/main/Crop_Recommendation_With_Soil.csv"
+df = pd.read_csv(url)
+
 # Encode Crop Labels
 crop_enc = LabelEncoder()
 df['CropLabel'] = crop_enc.fit_transform(df['Crop'])
