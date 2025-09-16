@@ -6,7 +6,7 @@ import streamlit as st
 # -------------------------------
 # Step 1: Load Dataset
 # -------------------------------
-df = pd.read_csv("Crop_Recommendation.csv")
+df = pd.read_csv("Crop_Recommendation_With_Soil.csv")
 
 # Encode Crop Labels
 crop_enc = LabelEncoder()
@@ -189,3 +189,4 @@ y_pred = model.predict(X)
 acc = (y_pred == y).mean()
 st.metric("Training Accuracy", f"{acc*100:.2f}%")
 st.markdown("</div>", unsafe_allow_html=True)
+
